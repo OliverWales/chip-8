@@ -27,8 +27,8 @@ fn main() {
         0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
         0xF0, 0x80, 0xF0, 0x80, 0x80, // F
     ];
-    for (i, byte) in font.iter().enumerate() {
-        memory[0x0050 + i] = *byte;
+    for (idx, byte) in font.iter().enumerate() {
+        memory[0x0050 + idx] = *byte;
     }
 
     // load program (IBM logo)
@@ -40,9 +40,9 @@ fn main() {
         0x00FC, 0x003E, 0x003F, 0x003B, 0x0039, 0x00F8, 0x00F8, 0x0300, 0x0700, 0x0F00, 0xBF00,
         0xFB00, 0xF300, 0xE300, 0x43E0, 0x00E0, 0x0080, 0x0080, 0x0080, 0x0080, 0x00E0, 0x00E0,
     ];
-    for (i, word) in program.iter().enumerate() {
-        memory[0x0200 + 2 * i] = ((*word & 0xFF00) >> 8) as u8;
-        memory[0x0200 + 2 * i + 1] = (*word & 0x00FF) as u8;
+    for (idx, word) in program.iter().enumerate() {
+        memory[0x0200 + 2 * idx] = ((*word & 0xFF00) >> 8) as u8;
+        memory[0x0200 + 2 * idx + 1] = (*word & 0x00FF) as u8;
     }
 
     loop {
@@ -59,10 +59,6 @@ fn main() {
 
         // execute
         match instruction {
-            0x0000 => {
-                println!("[0x{:04x}] - Exit", instruction);
-                break;
-            }
             0x00E0 => {
                 // Clear screen
                 println!("[0x{:04x}] - Clear screen", instruction);
@@ -78,15 +74,69 @@ fn main() {
                     break;
                 }
             }
+            0x2000..=0x2FFF => {
+                // Call NNN
+                println!("[0x{:04x}] - Call 0x{:03x}", instruction, nnn);
+                sp += 1;
+                stack[sp as usize] = pc;
+                pc = nnn;
+            }
+            0x3000..=0x3FFF => {
+                // Skip next instruction if VX == NN
+                println!(
+                    "[0x{:04x}] - Skip next instruction if V{} == {}",
+                    instruction, x, nn
+                );
+
+                if v[x as usize] == nn {
+                    pc += 2;
+                }
+            }
+            0x4000..=0x4FFF => {
+                // Skip next instruction if VX != NN
+                println!(
+                    "[0x{:04x}] - Skip next instruction if V{} != {}",
+                    instruction, x, nn
+                );
+
+                if v[x as usize] != nn {
+                    pc += 2;
+                }
+            }
+            0x5000..=0x5FFF => {
+                // Skip next instruction if VX == VY
+                println!(
+                    "[0x{:04x}] - Skip next instruction if V{} == V{}",
+                    instruction, x, y
+                );
+
+                if v[x as usize] == v[y as usize] {
+                    pc += 2;
+                }
+            }
             0x6000..=0x6FFF => {
-                // Set register Vx to NN
+                // Set register VX to NN
                 println!("[0x{:04x}] - Set register V{} to {}", instruction, x, nn);
                 v[x as usize] = nn;
             }
             0x7000..=0x7FFF => {
-                // Add NN to register Vx
+                // Add NN to register VX
                 println!("[0x{:04x}] - Add {} to register V{}", instruction, nn, x);
                 v[x as usize] += nn;
+            }
+            0x8000..=0x8FFF => {
+                // TODO: Register ops
+            }
+            0x9000..=0x9FFF => {
+                // Skip next instruction if VX != VY
+                println!(
+                    "[0x{:04x}] - Skip next instruction if V{} != V{}",
+                    instruction, x, y
+                );
+
+                if v[x as usize] != v[y as usize] {
+                    pc += 2;
+                }
             }
             0xA000..=0xAFFF => {
                 // Set index register to NNN
