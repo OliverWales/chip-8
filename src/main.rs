@@ -33,19 +33,19 @@ fn main() {
 
     // load program (IBM logo)
     let program: [u16; 66] = [
-        0x00E0, 0xA22A, 0x060C, 0x0618, 0xD01F, 0x0709, 0xA239, 0xD01F, 0xA248, 0x0708, 0xD01F,
-        0x0704, 0xA257, 0xD01F, 0x0708, 0xA266, 0xD01F, 0x0708, 0xA275, 0xD01F, 0x1228, 0x0FF0,
-        0x0FF0, 0x03C0, 0x03C0, 0x03C0, 0x03C0, 0x0FF0, 0xFFFF, 0x00FF, 0x0038, 0x003F, 0x003F,
-        0x0038, 0x00FF, 0x00FF, 0x0800, 0x0E00, 0x0E00, 0x0800, 0x0800, 0x0E00, 0x0E00, 0x80F8,
-        0x00FC, 0x003E, 0x003F, 0x003B, 0x0039, 0x00F8, 0x00F8, 0x0030, 0x0070, 0x00F0, 0x0BF0,
-        0x0FB0, 0x0F30, 0x0E30, 0x43E0, 0x00E0, 0x0080, 0x0080, 0x0080, 0x0080, 0x00E0, 0x00E0,
+        0x00E0, 0xA22A, 0x600C, 0x6108, 0xD01F, 0x7009, 0xA239, 0xD01F, 0xA248, 0x7008, 0xD01F,
+        0x7004, 0xA257, 0xD01F, 0x7008, 0xA266, 0xD01F, 0x7008, 0xA275, 0xD01F, 0x1228, 0xFF00,
+        0xFF00, 0x3C00, 0x3C00, 0x3C00, 0x3C00, 0xFF00, 0xFFFF, 0x00FF, 0x0038, 0x003F, 0x003F,
+        0x0038, 0x00FF, 0x00FF, 0x8000, 0xE000, 0xE000, 0x8000, 0x8000, 0xE000, 0xE000, 0x80F8,
+        0x00FC, 0x003E, 0x003F, 0x003B, 0x0039, 0x00F8, 0x00F8, 0x0300, 0x0700, 0x0F00, 0xBF00,
+        0xFB00, 0xF300, 0xE300, 0x43E0, 0x00E0, 0x0080, 0x0080, 0x0080, 0x0080, 0x00E0, 0x00E0,
     ];
     for (i, word) in program.iter().enumerate() {
         memory[0x0200 + 2 * i] = ((*word & 0xFF00) >> 8) as u8;
         memory[0x0200 + 2 * i + 1] = (*word & 0x00FF) as u8;
     }
 
-    for _ in 0..100 {
+    loop {
         // fetch
         let instruction: u16 = (memory[pc as usize] as u16) << 8 | memory[pc as usize + 1] as u16;
         pc += 2;
@@ -66,6 +66,7 @@ fn main() {
             0x00E0 => {
                 // Clear screen
                 println!("[0x{:04x}] - Clear screen", instruction);
+                draw_screen(&screen);
             }
             0x1000..=0x1FFF => {
                 // Jump to NNN
@@ -98,9 +99,16 @@ fn main() {
             0xD000..=0xDFFF => {
                 // Draw sprite of height N at (V{}, V{})
                 println!(
-                    "[0x{:04x}] - Draw sprite at I of height {} at (V{}, V{})",
-                    instruction, n, x, y
+                    "[0x{:04x}] - Draw sprite at 0x{:03x} of height {} at ({}, {})",
+                    instruction, i, n, v[x as usize], v[y as usize]
                 );
+
+                for h in 0..n {
+                    screen[(h + v[y as usize]) as usize] |=
+                        (memory[(i + h as u16) as usize] as u64) << 63 - v[x as usize];
+                    // TODO: set flag
+                }
+                draw_screen(&screen);
             }
             _ => {
                 // Instruction not yet implemented
@@ -110,5 +118,18 @@ fn main() {
                 );
             }
         }
+    }
+}
+
+fn draw_screen(screen: &[u64; 32]) {
+    for line in screen {
+        for bit in 0..64 {
+            if line >> (63 - bit) & 1 == 1 {
+                print!("██");
+            } else {
+                print!("  ");
+            }
+        }
+        println!();
     }
 }
