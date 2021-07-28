@@ -198,11 +198,20 @@ fn main() {
                         cpu_state.v[y as usize]
                     );
 
-                    for h in 0..n {
-                        cpu_state.screen[(h + cpu_state.v[y as usize]) as usize] |=
-                            (cpu_state.memory[(cpu_state.i + h as u16) as usize] as u64)
-                                << 63 - cpu_state.v[x as usize];
-                        // TODO: set flag
+                    cpu_state.v[15] = 0;
+
+                    for row in 0..n {
+                        let sprite_row = (cpu_state.memory[(cpu_state.i + row as u16) as usize]
+                            as u64)
+                            << 63 - (cpu_state.v[x as usize] % 64);
+
+                        if cpu_state.screen[(row + cpu_state.v[y as usize]) as usize] & sprite_row
+                            != 0
+                        {
+                            cpu_state.v[15] = 1;
+                        }
+
+                        cpu_state.screen[(row + cpu_state.v[y as usize]) as usize] ^= sprite_row;
                     }
                 }
                 _ => {
