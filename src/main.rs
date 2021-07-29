@@ -109,6 +109,15 @@ fn main() {
                 0x00E0 => {
                     // Clear screen
                     println!("[0x{:04x}] - Clear screen", instruction);
+                    for row in 0..SCREEN_COLS {
+                        cpu_state.screen[row as usize] = 0;
+                    }
+                }
+                0x00EE => {
+                    // Clear screen
+                    println!("[0x{:04x}] - Return from subroutine", instruction);
+                    cpu_state.pc = cpu_state.stack[cpu_state.sp as usize];
+                    cpu_state.sp -= 1;
                 }
                 0x1000..=0x1FFF => {
                     // Jump to NNN
@@ -165,9 +174,73 @@ fn main() {
                     println!("[0x{:04x}] - Add {} to register V{}", instruction, nn, x);
                     cpu_state.v[x as usize] += nn;
                 }
-                0x8000..=0x8FFF => {
-                    // TODO: Register ops
-                }
+                0x8000..=0x8FFF => match n {
+                    0x0 => {
+                        println!("[0x{:04x}] V{} = V{}", instruction, x, y);
+                        cpu_state.v[x as usize] = cpu_state.v[y as usize];
+                    }
+                    0x1 => {
+                        println!("[0x{:04x}] V{} |= V{}", instruction, y, x);
+                        cpu_state.v[x as usize] |= cpu_state.v[y as usize];
+                    }
+                    0x2 => {
+                        println!("[0x{:04x}] V{} &= V{}", instruction, y, x);
+                        cpu_state.v[x as usize] &= cpu_state.v[y as usize];
+                    }
+                    0x3 => {
+                        println!("[0x{:04x}] V{} ^= V{}", instruction, y, x);
+                        cpu_state.v[x as usize] ^= cpu_state.v[y as usize];
+                    }
+                    0x4 => {
+                        println!("[0x{:04x}] V{} += V{}", instruction, y, x);
+                        if cpu_state.v[x as usize] as u16 + cpu_state.v[y as usize] as u16 > 255 {
+                            cpu_state.v[0xf] = 1;
+                        } else {
+                            cpu_state.v[0xf] = 0;
+                        }
+
+                        cpu_state.v[x as usize] += cpu_state.v[y as usize];
+                    }
+                    0x5 => {
+                        println!("[0x{:04x}] V{} -= V{}", instruction, y, x);
+                        if cpu_state.v[x as usize] > cpu_state.v[y as usize] {
+                            cpu_state.v[0xf] = 1;
+                        } else {
+                            cpu_state.v[0xf] = 0;
+                        }
+
+                        cpu_state.v[x as usize] -= cpu_state.v[y as usize];
+                    }
+                    0x6 => {
+                        println!("[0x{:04x}] V{} = V{} = V{} >> 1", instruction, x, y, y);
+                        if cpu_state.v[y as usize] & 1 == 1 {
+                            cpu_state.v[0xf] = 1;
+                        } else {
+                            cpu_state.v[0xf] = 0;
+                        }
+
+                        cpu_state.v[y as usize] >>= 1;
+                        cpu_state.v[x as usize] = cpu_state.v[y as usize];
+                    }
+                    0x7 => {
+                        println!("[0x{:04x}] V{} = V{} - V{}", instruction, x, y, x);
+                        if cpu_state.v[y as usize] > cpu_state.v[x as usize] {
+                            cpu_state.v[0xf] = 1;
+                        } else {
+                            cpu_state.v[0xf] = 0;
+                        }
+
+                        cpu_state.v[x as usize] = cpu_state.v[y as usize] - cpu_state.v[x as usize];
+                    }
+                    // TODO: implement remaining register ops
+                    _ => {
+                        // Instruction not yet implemented
+                        println!(
+                            "[0x{:04x}] - Register operation 0x{:04x} not implemented",
+                            instruction, instruction
+                        );
+                    }
+                },
                 0x9000..=0x9FFF => {
                     // Skip next instruction if VX != VY
                     println!(
@@ -198,7 +271,7 @@ fn main() {
                         cpu_state.v[y as usize]
                     );
 
-                    cpu_state.v[15] = 0;
+                    cpu_state.v[0xf] = 0;
 
                     for row in 0..n {
                         let sprite_row = (cpu_state.memory[(cpu_state.i + row as u16) as usize]
@@ -208,7 +281,7 @@ fn main() {
                         if cpu_state.screen[(row + cpu_state.v[y as usize]) as usize] & sprite_row
                             != 0
                         {
-                            cpu_state.v[15] = 1;
+                            cpu_state.v[0xf] = 1;
                         }
 
                         cpu_state.screen[(row + cpu_state.v[y as usize]) as usize] ^= sprite_row;
